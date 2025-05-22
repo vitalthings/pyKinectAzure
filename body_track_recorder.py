@@ -24,6 +24,9 @@ upside_down = False
 data_folder = None
 running = True
 
+depth_video_width = 512
+depth_video_height = 512
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Kinect Azure Multicam Body Tracking")
     parser.add_argument("--calib", action="store_true", help="Run in calibration mode")
@@ -101,7 +104,8 @@ def process_camera_tracking(device_info, video_writer):
             json_file.write(",\n")
             json_file.flush()
 
-            video_writer.write(combined_image)
+            down_scaled_image = cv2.resize(combined_image, (depth_video_width, depth_video_height))
+            video_writer.write(down_scaled_image)
 
         window_name = f"Cam{device_info['index']}"
         cv2.imshow(window_name, combined_image)
@@ -234,9 +238,6 @@ def main():
     else:
         window_size = screen_width // 2
 
-    frame_width = 1024
-    frame_height = 1024
-
     if use_lite_model:
         fps = 15
         camera_fps = k4a.K4A_FRAMES_PER_SECOND_15
@@ -310,7 +311,7 @@ def main():
                     f'{data_folder}/track_video_cam{i}.mp4',
                     cv2.VideoWriter_fourcc(*'mp4v'),
                     fps,
-                    (frame_width, frame_height)
+                    (depth_video_width, depth_video_height)
                 )
             else:
                 video_writer = None
