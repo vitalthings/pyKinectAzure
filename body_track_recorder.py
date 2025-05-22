@@ -72,8 +72,13 @@ def process_camera_tracking(device_info, video_writer):
         if not ret_depth:
             continue
 
+
         body_frame = bodyTracker.update(device)
-        combined_image = body_frame.draw_bodies(depth_image)
+
+        _, body_image_color = body_frame.get_segmentation_image()
+
+        combined_image = cv2.addWeighted(depth_image, 0.6, body_image_color, 0.4, 0)
+        combined_image = body_frame.draw_bodies(combined_image)
 
         num_bodies = body_frame.get_num_bodies()
         if num_bodies > 0:
@@ -229,9 +234,6 @@ def main():
     else:
         window_size = screen_width // 2
 
-    # frame_width = 512
-    # frame_height = 512
-
     frame_width = 1024
     frame_height = 1024
 
@@ -305,8 +307,8 @@ def main():
 
             if record:
                 video_writer = cv2.VideoWriter(
-                    f'{data_folder}/track_video_cam{i}.avi',
-                    cv2.VideoWriter_fourcc(*'XVID'),
+                    f'{data_folder}/track_video_cam{i}.mp4',
+                    cv2.VideoWriter_fourcc(*'mp4v'),
                     fps,
                     (frame_width, frame_height)
                 )
