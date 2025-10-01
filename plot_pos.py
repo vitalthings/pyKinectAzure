@@ -4,17 +4,25 @@ import matplotlib.pyplot as plt
 from rotation import closest_rotation_matrix
 import json
 import glob
+import argparse
+import os
+from scipy.ndimage import gaussian_filter1d
 
-calibration_folder = 'data/calibration/cal_0003/'
+parser = argparse.ArgumentParser(description="Plot positions from multi-cam tracking and generate ground truth.")
+parser.add_argument('-c', '--calibration-folder', default='data/calibration/cal_0005/', help='Path to calibration folder (e.g. data/calibration/cal_0005)')
+parser.add_argument('-t', '--tracking-folder', default='data/tracking/movement_still/', help='Path to tracking folder (e.g. data/tracking/track_0004)')
+parser.add_argument('-o', '--ground-truth-output-folder', default='.', help='Directory to store ground_truth.npz')
+args = parser.parse_args()
 
-# tracking_folder = 'data/tracking/track_0004/'
-# radar_data_file = 'processed_radar_data0.npz'
+calibration_folder = args.calibration_folder
+tracking_folder = args.tracking_folder
+ground_truth_output_folder = args.ground_truth_output_folder
 
-tracking_folder = 'data/tracking/track_0005/'
-radar_data_file = 'processed_radar_data1.npz'
+# Existing hard-coded radar file kept (not requested to be parameterized)
+radar_data_file = 'processed_radar_data2.npz'
 
 # emblobot in room coordinates
-c0_room = np.array([[2.36, 2.11, 1.51]]).T * 1000
+c0_room = np.array([[2.05, 2.38, 1.22]]).T * 1000
 
 # %%
 def reject_outliers(data, m=2.):
@@ -171,6 +179,7 @@ for cam_id in camera_ids:
     offset = cam_frame_offsets[cam_id]
     camera_room_positions[cam_id] = camera_room_positions[cam_id][offset:offset + min_length]
     camera_tracks[cam_id] = camera_tracks[cam_id][offset:offset + min_length]
+    camera_confidences[cam_id] = camera_confidences[cam_id][offset:offset + min_length]
 
 #%%
 
@@ -245,9 +254,11 @@ axs[1].plot(timestamps, camera_superposition[:, 1], label='super y', color='blac
 axs[2].plot(timestamps, camera_superposition[:, 2], label='super z', color='black', linestyle='--')
 axs[3].plot(timestamps, camera_superposition_track, label='super track', color='black', linestyle='--')
 
-axs[0].plot(radar_timestamps, trajectory[:, 0], label='radar x')
-axs[1].plot(radar_timestamps, trajectory[:, 1], label='radar y')
-axs[2].plot(radar_timestamps, trajectory[:, 2], label='radar z')
+# trajectory = gaussian_filter1d(trajectory, sigma=1, axis=0)
+
+axs[0].plot(radar_timestamps, trajectory[:, 0], label='radar x', color='C3')
+axs[1].plot(radar_timestamps, trajectory[:, 1], label='radar y', color='C3')
+axs[2].plot(radar_timestamps, trajectory[:, 2], label='radar z', color='C3')
 
 for ax in axs:
     ax.legend()
@@ -255,3 +266,7 @@ for ax in axs:
 
 plt.tight_layout()
 plt.show()
+
+if ground_truth_output_folder and not os.path.exists(ground_truth_output_folder):
+    os.makedirs(ground_truth_output_folder, exist_ok=True)
+np.savez(os.path.join(ground_truth_output_folder, "ground_truth.npz"), trajectory=camera_superposition, timestamps=common_utc_timestamps)
