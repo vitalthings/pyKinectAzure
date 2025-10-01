@@ -13,6 +13,7 @@ parser.add_argument('-c', '--calibration-folder', default='data/calibration/cal_
 parser.add_argument('-t', '--tracking-folder', default='data/tracking/movement_still/', help='Path to tracking folder (e.g. data/tracking/track_0004)')
 parser.add_argument('-o', '--ground-truth-output-folder', default='.', help='Directory to store ground_truth.npz')
 parser.add_argument('-j', '--joint-id', type=int, default=26, help='Joint ID to extract (default: 26)')
+parser.add_argument('--skip-plot', action='store_true', help='Skip plotting (only compute and save ground truth)')
 args = parser.parse_args()
 
 calibration_folder = args.calibration_folder
@@ -214,32 +215,33 @@ for i in range(min_length):
         camera_superposition[i] = (camera_superposition[i - 1] + camera_superposition[next_track_index]) / 2
 
 #%%
-fig, axs = plt.subplots(4, 1, figsize=(10, 10))
+if not args.skip_plot:
+    fig, axs = plt.subplots(4, 1, figsize=(10, 10))
 
-for cam_id in camera_ids:
-    positions = camera_room_positions[cam_id]
-    axs[0].plot(timestamps, positions[:, 0], label=f'cam{cam_id} x')
-    axs[1].plot(timestamps, positions[:, 1], label=f'cam{cam_id} y')
-    axs[2].plot(timestamps, positions[:, 2], label=f'cam{cam_id} z')
-    axs[3].plot(timestamps, camera_tracks[cam_id], label=f'cam{cam_id} track')
+    for cam_id in camera_ids:
+        positions = camera_room_positions[cam_id]
+        axs[0].plot(timestamps, positions[:, 0], label=f'cam{cam_id} x')
+        axs[1].plot(timestamps, positions[:, 1], label=f'cam{cam_id} y')
+        axs[2].plot(timestamps, positions[:, 2], label=f'cam{cam_id} z')
+        axs[3].plot(timestamps, camera_tracks[cam_id], label=f'cam{cam_id} track')
 
-axs[0].set_ylabel('X pos [m]')
-axs[1].set_ylabel('Y pos [m]')
-axs[2].set_ylabel('Z pos [m]')
-axs[3].set_ylabel('Has track')
-axs[3].set_xlabel('Time [s]')
+    axs[0].set_ylabel('X pos [m]')
+    axs[1].set_ylabel('Y pos [m]')
+    axs[2].set_ylabel('Z pos [m]')
+    axs[3].set_ylabel('Has track')
+    axs[3].set_xlabel('Time [s]')
 
-axs[0].plot(timestamps, camera_superposition[:, 0], label='super x', color='black', linestyle='--')
-axs[1].plot(timestamps, camera_superposition[:, 1], label='super y', color='black', linestyle='--')
-axs[2].plot(timestamps, camera_superposition[:, 2], label='super z', color='black', linestyle='--')
-axs[3].plot(timestamps, camera_superposition_track, label='super track', color='black', linestyle='--')
+    axs[0].plot(timestamps, camera_superposition[:, 0], label='super x', color='black', linestyle='--')
+    axs[1].plot(timestamps, camera_superposition[:, 1], label='super y', color='black', linestyle='--')
+    axs[2].plot(timestamps, camera_superposition[:, 2], label='super z', color='black', linestyle='--')
+    axs[3].plot(timestamps, camera_superposition_track, label='super track', color='black', linestyle='--')
 
-for ax in axs:
-    ax.legend()
-    ax.grid()
+    for ax in axs:
+        ax.legend()
+        ax.grid()
 
-plt.tight_layout()
-plt.show()
+    plt.tight_layout()
+    plt.show()
 
 if ground_truth_output_folder and not os.path.exists(ground_truth_output_folder):
     os.makedirs(ground_truth_output_folder, exist_ok=True)
