@@ -12,14 +12,12 @@ parser = argparse.ArgumentParser(description="Plot positions from multi-cam trac
 parser.add_argument('-c', '--calibration-folder', default='data/calibration/cal_0005/', help='Path to calibration folder (e.g. data/calibration/cal_0005)')
 parser.add_argument('-t', '--tracking-folder', default='data/tracking/movement_still/', help='Path to tracking folder (e.g. data/tracking/track_0004)')
 parser.add_argument('-o', '--ground-truth-output-folder', default='.', help='Directory to store ground_truth.npz')
+parser.add_argument('-j', '--joint-id', type=int, default=26, help='Joint ID to extract (default: 26)')
 args = parser.parse_args()
 
 calibration_folder = args.calibration_folder
 tracking_folder = args.tracking_folder
 ground_truth_output_folder = args.ground_truth_output_folder
-
-# Existing hard-coded radar file kept (not requested to be parameterized)
-radar_data_file = 'processed_radar_data2.npz'
 
 # emblobot in room coordinates
 c0_room = np.array([[2.05, 2.38, 1.22]]).T * 1000
@@ -108,7 +106,9 @@ def get_utc_timestamps(json_data):
     )
 
 # Process joint data for all cameras
-joint_id = 26  # Example: head_joint_id
+# joint_id = 26  # Example: head_joint_id
+joint_id = args.joint_id  # Selected via CLI
+
 camera_positions = {}
 camera_confidences = {}
 camera_timestamps = {}
@@ -214,26 +214,6 @@ for i in range(min_length):
         camera_superposition[i] = (camera_superposition[i - 1] + camera_superposition[next_track_index]) / 2
 
 #%%
-
-radar_data_file_dir = 'radar_data/'
-radar_data = np.load(f"{radar_data_file_dir}/{radar_data_file}")
-trajectory = radar_data['trajectory']
-
-emblo_pos = np.array([2.13489719, 2.0658243, 1.38588626])
-trajectory = trajectory - emblo_pos.T + (c0_room/1000).T
-
-radar_timestamps = radar_data['timestamps']
-radar_timestamps = (radar_timestamps/1e3 - common_utc_timestamps[0]) / 1e6
-print("radar timestamps:", radar_timestamps[0])
-
-radar_timestamp_offset = -1
-radar_timestamps = radar_timestamps[:trajectory.shape[0]] + radar_timestamp_offset
-
-valid_indices = np.where((radar_timestamps >= 0) & (radar_timestamps <= timestamps[-1]))[0]
-trajectory = trajectory[valid_indices]
-radar_timestamps = radar_timestamps[valid_indices]
-
-#%%
 fig, axs = plt.subplots(4, 1, figsize=(10, 10))
 
 for cam_id in camera_ids:
@@ -254,12 +234,6 @@ axs[1].plot(timestamps, camera_superposition[:, 1], label='super y', color='blac
 axs[2].plot(timestamps, camera_superposition[:, 2], label='super z', color='black', linestyle='--')
 axs[3].plot(timestamps, camera_superposition_track, label='super track', color='black', linestyle='--')
 
-# trajectory = gaussian_filter1d(trajectory, sigma=1, axis=0)
-
-axs[0].plot(radar_timestamps, trajectory[:, 0], label='radar x', color='C3')
-axs[1].plot(radar_timestamps, trajectory[:, 1], label='radar y', color='C3')
-axs[2].plot(radar_timestamps, trajectory[:, 2], label='radar z', color='C3')
-
 for ax in axs:
     ax.legend()
     ax.grid()
@@ -269,4 +243,4 @@ plt.show()
 
 if ground_truth_output_folder and not os.path.exists(ground_truth_output_folder):
     os.makedirs(ground_truth_output_folder, exist_ok=True)
-np.savez(os.path.join(ground_truth_output_folder, "ground_truth.npz"), trajectory=camera_superposition, timestamps=common_utc_timestamps)
+np.savez(os.path.join(ground_truth_output_folder, f"ground_truth_joint{joint_id}.npz"), trajectory=camera_superposition, timestamps=common_utc_timestamps)
