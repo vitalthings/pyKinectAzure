@@ -8,6 +8,8 @@ import argparse
 import os
 from scipy.ndimage import gaussian_filter1d
 
+INTERPOLATE_MISSING = False
+
 parser = argparse.ArgumentParser(description="Plot positions from multi-cam tracking and generate ground truth.")
 parser.add_argument('-c', '--calibration-folder', default='data/calibration/cal_0005/', help='Path to calibration folder (e.g. data/calibration/cal_0005)')
 parser.add_argument('-t', '--tracking-folder', default='data/tracking/movement_still/', help='Path to tracking folder (e.g. data/tracking/track_0004)')
@@ -211,8 +213,12 @@ def get_next_track_index(tracks, start_index):
 # if the camera superposition track is 0, the camera superposition is set the average of the previous and next valid frame
 for i in range(min_length):
     if camera_superposition_track[i] == 0:
-        next_track_index = get_next_track_index(camera_superposition_track, i + 1)
-        camera_superposition[i] = (camera_superposition[i - 1] + camera_superposition[next_track_index]) / 2
+        if INTERPOLATE_MISSING:
+            next_track_index = get_next_track_index(camera_superposition_track, i + 1)
+            camera_superposition[i] = (camera_superposition[i - 1] + camera_superposition[next_track_index]) / 2
+        else:
+            camera_superposition[i] = np.array([np.nan, np.nan, np.nan])
+
 
 #%%
 if not args.skip_plot:
