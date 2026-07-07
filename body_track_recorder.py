@@ -36,6 +36,7 @@ def parse_arguments():
     parser.add_argument("--record", action="store_true", help="Record data to file")
     parser.add_argument("--gpu-device-id", type=int, default=0, help="GPU device id for the body tracker")
     parser.add_argument("--no-color", action="store_true", help="Disable the RGB color camera (tracking mode only)")
+    parser.add_argument("--output", type=str, default=None, help="Output folder for recorded data (overrides the auto-generated path)")
     return parser.parse_args()
 
 def start_camera(device_info):
@@ -218,19 +219,22 @@ def main():
         raise Exception("No Kinect devices found!")
 
     if record:
-        if calibration:
-            folders_path = "data/calibration"
-            folder_prefix = "data/calibration/cal_"
-        else:
-            folders_path = "data/tracking"
-            folder_prefix = "data/tracking/track_"
-
         global data_folder
-        os.makedirs(folders_path, exist_ok=True)
-        folders = os.listdir(folders_path)
-        sorted_folders = sorted(folders, key=lambda x: int(x.split('_')[1]))
-        highest_index = int(sorted_folders[-1].split('_')[1]) if sorted_folders else 0
-        data_folder = f"{folder_prefix}{(highest_index + 1):04d}/"
+        if args.output:
+            data_folder = args.output if args.output.endswith("/") else args.output + "/"
+        else:
+            if calibration:
+                folders_path = "data/calibration"
+                folder_prefix = "data/calibration/cal_"
+            else:
+                folders_path = "data/tracking"
+                folder_prefix = "data/tracking/track_"
+
+            os.makedirs(folders_path, exist_ok=True)
+            folders = os.listdir(folders_path)
+            sorted_folders = sorted(folders, key=lambda x: int(x.split('_')[1]))
+            highest_index = int(sorted_folders[-1].split('_')[1]) if sorted_folders else 0
+            data_folder = f"{folder_prefix}{(highest_index + 1):04d}/"
         os.makedirs(data_folder, exist_ok=True)
 
     global window_size
