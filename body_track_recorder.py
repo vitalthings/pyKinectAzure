@@ -34,6 +34,8 @@ def parse_arguments():
     parser.add_argument("--lite", action="store_true", help="Use lite model for body tracking")
     parser.add_argument("--flip", action="store_true", help="Flip the camera upside down")
     parser.add_argument("--record", action="store_true", help="Record data to file")
+    parser.add_argument("--gpu-device-id", type=int, default=0, help="GPU device id for the body tracker")
+    parser.add_argument("--no-color", action="store_true", help="Disable the RGB color camera (tracking mode only)")
     return parser.parse_args()
 
 def start_camera(device_info):
@@ -255,8 +257,13 @@ def main():
             device_config.color_resolution = k4a.K4A_COLOR_RESOLUTION_3072P
             device_config.camera_fps = k4a.K4A_FRAMES_PER_SECOND_5
         else:
-            device_config.depth_mode = k4a.K4A_DEPTH_MODE_WFOV_UNBINNED
-            device_config.color_resolution = k4a.K4A_COLOR_RESOLUTION_720P
+            # device_config.depth_mode = k4a.K4A_DEPTH_MODE_WFOV_2X2BINNED
+            if args.no_color:
+                device_config.color_resolution = k4a.K4A_COLOR_RESOLUTION_OFF
+                # synchronized_images_only requires both cameras enabled
+                device_config.synchronized_images_only = False
+            else:
+                device_config.color_resolution = k4a.K4A_COLOR_RESOLUTION_720P
             device_config.camera_fps = camera_fps
         bodyTracker = None
         devices.append({
@@ -294,6 +301,7 @@ def main():
             "NO Master device detected but detected Sub device, please check the sync cable!")
 
     tracker_config = pykinect.default_tracker_configuration
+    tracker_config.gpu_device_id = args.gpu_device_id
     if upside_down:
         tracker_config.sensor_orientation = k4abt.K4ABT_SENSOR_ORIENTATION_FLIP180
     else:
