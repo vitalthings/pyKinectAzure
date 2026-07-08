@@ -23,6 +23,7 @@ record = True
 upside_down = False
 data_folder = None
 running = True
+body_tracking = True
 
 depth_video_width = 512
 depth_video_height = 512
@@ -36,6 +37,7 @@ def parse_arguments():
     parser.add_argument("--record", action="store_true", help="Record data to file")
     parser.add_argument("--gpu-device-id", type=int, default=0, help="GPU device id for the body tracker")
     parser.add_argument("--no-color", action="store_true", help="Disable the RGB color camera (tracking mode only)")
+    parser.add_argument("--no-tracking", action="store_true", help="Disable body tracking (show depth feed only, tracking mode only)")
     parser.add_argument("--output", type=str, default=None, help="Output folder for recorded data (overrides the auto-generated path)")
     return parser.parse_args()
 
@@ -79,17 +81,22 @@ def process_camera_tracking(device_info, video_writer):
             continue
 
 
-        body_frame = bodyTracker.update(device)
+        if body_tracking:
+            body_frame = bodyTracker.update(device)
 
-        _, body_image_color = body_frame.get_segmentation_image()
+            _, body_image_color = body_frame.get_segmentation_image()
 
-        combined_image = cv2.addWeighted(depth_image, 0.6, body_image_color, 0.4, 0)
-        combined_image = body_frame.draw_bodies(combined_image)
+            combined_image = cv2.addWeighted(depth_image, 0.6, body_image_color, 0.4, 0)
+            combined_image = body_frame.draw_bodies(combined_image)
 
-        num_bodies = body_frame.get_num_bodies()
-        if num_bodies > 0:
-            joints = body_frame.json()[0]['skeleton']['joints']
+            num_bodies = body_frame.get_num_bodies()
+            if num_bodies > 0:
+                joints = body_frame.json()[0]['skeleton']['joints']
+            else:
+                joints = ""
         else:
+            combined_image = depth_image
+            num_bodies = 0
             joints = ""
 
         if upside_down:
@@ -206,12 +213,13 @@ def process_camera_calibration(device_info, aruco_detector: ArucoDetector):
 def main():
     args = parse_arguments()
     calibration = args.calib
-    global upside_down, record
+    global upside_down, record, body_tracking
     upside_down = args.flip
     use_lite_model = args.lite
     record = args.record
+    body_tracking = not args.no_tracking
 
-    pykinect.initialize_libraries(track_body=not calibration)
+    pykinect.initialize_libraries(track_body=not calibration and body_tracking)
 
     devices = []
     num_devices = pykinect.k4a_device_get_installed_count()
@@ -261,7 +269,7 @@ def main():
             device_config.color_resolution = k4a.K4A_COLOR_RESOLUTION_3072P
             device_config.camera_fps = k4a.K4A_FRAMES_PER_SECOND_5
         else:
-            # device_config.depth_mode = k4a.K4A_DEPTH_MODE_WFOV_2X2BINNED
+            device_config.depth_mode = k4a.K4A_DEPTH_MODE_WFOV_2X2BINNED
             if args.no_color:
                 device_config.color_resolution = k4a.K4A_COLOR_RESOLUTION_OFF
                 # synchronized_images_only requires both cameras enabled
@@ -316,7 +324,8 @@ def main():
 
     for i in range(num_devices):
         if not calibration:
-            devices[i]['bodyTracker'] = pykinect.start_body_tracker(calibration=devices[i]['device'].calibration, model_type=model)
+            if body_tracking:
+                devices[i]['bodyTracker'] = pykinect.start_body_tracker(calibration=devices[i]['device'].calibration, model_type=model)
 
             if record:
                 video_writer = cv2.VideoWriter(
